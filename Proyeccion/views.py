@@ -6,10 +6,11 @@ from .models import Proyeccion, InventarioItem, ClimaDiario, Especie, Perfil, Lo
 from datetime import date, timedelta, datetime
 from decimal import Decimal
 from django.utils import timezone
+from .services import calcular_media_historica_7_dias, calcular_factor_proyeccion_14_dias 
 import requests
 
 # --- Configuración de API (CRÍTICO: Mover a settings.py en producción) ---
-API_KEY = '74dfedb7dd8d15688e1502c3cab863b7' # Clave activa
+API_KEY = '74dfedb7d8d15688e1502c5cab863b7' # Clave activa
 CIUDAD = 'Caldera,CL'
 URL_CLIMA = f'http://api.openweathermap.org/data/2.5/weather?q={CIUDAD}&appid={API_KEY}&units=metric'
 
@@ -55,7 +56,7 @@ def registro_biomasa(request):
             peso_humedo_inicial=peso_humedo,
         )
         
-        # [cite_start]2. Crear el InventarioItem VIVO asociado al Lote (Inventario Vivo) [cite: 63]
+        # 2. Crear el InventarioItem VIVO asociado al Lote (Inventario Vivo)
         InventarioItem.objects.create(
             lote=nuevo_lote,
             especie=nueva_especie,
@@ -78,7 +79,6 @@ def calcular_proyeccion(request):
     )
     
     # 2. Obtener Datos Climáticos de Caldera (API METEOROLÓGICA)
-    modificador_capacidad = Decimal('1.0') 
     alerta_mensaje = "Proyección generada sin alertas." # Mensaje por defecto
 
     try:
@@ -89,46 +89,54 @@ def calcular_proyeccion(request):
         humedad_actual = datos_clima['main']['humidity'] 
         condicion_clima = datos_clima['weather'][0]['description']
         
-        # Guardar el Clima en Base de Datos (ClimaDiario) para Trazabilidad
-        ClimaDiario.objects.create(
+        # 3. Guardar o Usar el Clima de Hoy (para evitar el error UNIQUE constraint)
+        registro_clima_hoy, created = ClimaDiario.objects.get_or_create(
             fecha=timezone.localdate(),
-            humedad=f"{humedad_actual}%",
-            radiacion_solar="ND (Vía API)", 
-            condicion=condicion_clima
+            defaults={
+                'humedad': f"{humedad_actual}%",
+                'radiacion_solar': "ND (Vía API)",
+                'condicion': condicion_clima
+            }
         )
         
-        # Aplicar MODIFICADOR CLIMÁTICO (Gestión de la Incertidumbre)
+        # 4. Aplicar Alerta Climática (Gestión de la Incertidumbre)
+        # Esto solo genera el mensaje, la lógica predictiva está en services.py
         if humedad_actual > 80:
-            modificador_capacidad = Decimal('0.75') 
-            alerta_mensaje = f"Alerta Crítica: Humedad en Caldera ({humedad_actual}%) reducirá capacidad en 25%."
+            alerta_mensaje = f"Alerta Crítica: Humedad en Caldera ({humedad_actual}%) reducirá capacidad."
         elif humedad_actual > 60:
-            modificador_capacidad = Decimal('0.90')
-            alerta_mensaje = f"Advertencia: Humedad en Caldera ({humedad_actual}%) reducirá capacidad en 10%."
+            alerta_mensaje = f"Advertencia: Humedad en Caldera ({humedad_actual}%) afectará ligeramente la proyección."
 
     except requests.exceptions.RequestException as e:
-        modificador_capacidad = Decimal('1.0') 
-        alerta_mensaje = f"Error: No se pudo conectar a la API. Usando modificador por defecto (100%). {e}"
-        # Se podría registrar Alerta aquí para el Gerente General sobre fallo de conexión
+        alerta_mensaje = f"Error: No se pudo conectar a la API. Usando modelo predictivo histórico. {e}"
 
     proyecciones = []
-    
-    # 3. Iterar sobre el inventario y generar las proyecciones
+
+    # 5. Iterar sobre el inventario y generar las proyecciones usando el modelo interno
     for item in inventario_vivo:
         especie = Especie.objects.get(pk=item['especie'])
-        total_humedo = item['total_humedo']
-        factor = especie.factor_conversion # Factor 6:1 (crítico)
         
-        capacidad_seca_base = total_humedo / factor # Conversión 6:1
-        capacidad_seca_modificada = capacidad_seca_base * modificador_capacidad # Aplicar clima
+        # *** MODELO PREDICTIVO INTERNO (services.py) ***
         
-        # Proyección a 7 días (ej. 50% de la capacidad MODIFICADA)
-        capacidad_7_dias = capacidad_seca_modificada * Decimal('0.50')
+        # 5a. Calcular el rendimiento promedio de 7 días basado en historial (Modelo Interno)
+        capacidad_7_dias_historica = calcular_media_historica_7_dias(especie.id)
+        
+        # 5b. Si no hay historial, se usa la capacidad seca base como respaldo (BACKUP)
+        if capacidad_7_dias_historica == Decimal('0.0'):
+            # Usamos la conversión 6:1 del inventario VIVO como BACKUP
+            capacidad_seca_base = item['total_humedo'] / especie.factor_conversion
+            capacidad_7_dias = capacidad_seca_base * Decimal('0.50') 
+            alerta_mensaje = "Advertencia: Proyección basada en el inventario actual (sin historial)."
+        else:
+            # Usamos el resultado del modelo predictivo (media histórica ponderada)
+            capacidad_7_dias = capacidad_7_dias_historica
+            
+        # Proyección a 7 días (Guardar resultado del Modelo Interno)
         Proyeccion.objects.create(
             especie=especie, dias=7, capacidad_estimada=capacidad_7_dias
         )
-
-        # Proyección a 14 días (ej. 80% de la capacidad MODIFICADA)
-        capacidad_14_dias = capacidad_seca_modificada * Decimal('0.80')
+        
+        # 5c. Proyección a 14 días (Modelo Interno basado en factor de 7 días)
+        capacidad_14_dias = calcular_factor_proyeccion_14_dias(capacidad_7_dias)
         Proyeccion.objects.create(
             especie=especie, dias=14, capacidad_estimada=capacidad_14_dias
         )
