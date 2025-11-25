@@ -5,34 +5,28 @@ from .models import Proyeccion, InventarioItem, ClimaDiario, Especie, Perfil, Lo
 from datetime import date, timedelta, datetime
 from decimal import Decimal
 from django.utils import timezone
-# Importar el modelo Perfil para el control de acceso
 
-# Función que verifica si el usuario tiene el rol requerido
+
+
 def rol_requerido(rol):
     def decorator(view_func):
         def wrapper_func(request, *args, **kwargs):
             if request.user.is_authenticated:
                 try:
-                    # Verifica si el perfil del usuario existe y si el rol coincide
                     if request.user.perfil.rol == rol or request.user.is_superuser:
                         return view_func(request, *args, **kwargs)
                 except Perfil.DoesNotExist:
-                    # Si no tiene perfil, se le niega el acceso
                     pass
-            # Si no está autenticado o no tiene el rol, redirige
             return render(request, 'acceso_denegado.html', status=403) 
         return wrapper_func
     return decorator
 
 # 1. Función para el Dashboard
-# @login_required garantiza que solo usuarios autenticados puedan acceder.
 @login_required 
 def dashboard(request):
-    # Aquí iría la lógica para calcular y mostrar los KPIs
     return render(request, 'dashboard.html', {})
 
 # 2. Función para registrar la biomasa
-# Usamos un simple formulario de Django (NO el ModelForm por ahora)
 @login_required
 def registro_biomasa(request):
     if request.method == 'POST':
@@ -57,11 +51,11 @@ def registro_biomasa(request):
             lote=nuevo_lote,
             especie=nueva_especie,
             zona=nueva_zona,
-            cantidad=peso_humedo, # Se registra la cantidad húmeda inicialmente
+            cantidad=peso_humedo, 
             estado='VIVO'
         )
         
-        return redirect('dashboard') # Redirigir al dashboard después de guardar
+        return redirect('dashboard') 
         
     else:
         # --- Lógica para mostrar el formulario ---
@@ -164,7 +158,7 @@ def registro_pedido(request):
         if proyeccion:
             capacidad_total += proyeccion.capacidad_estimada
 
-        # c) Decisión: ¿La capacidad es mayor al producto? (Lógica de OTD)
+        # c) Decisión: ¿La capacidad es mayor al producto? 
         if capacidad_total >= volumen_seco:
             estado_pedido = 'FACTIBLE'
             mensaje = f"✅ Pedido Factible. Capacidad total estimada: {capacidad_total:.2f} kg secos."
@@ -224,7 +218,6 @@ def registro_pedido(request):
                 en_mail=False 
             )
 
-    # Este return final maneja la solicitud GET y la solicitud POST con el resultado
     return render(request, 'registro_pedido.html', {
         'especies': especies, 
         'mensaje': mensaje, 

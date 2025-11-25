@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User 
 
-# --- Entidades de Configuración y Ubicación ---
+
 
 class Zona(models.Model):
     """Representa la zona o centro de cultivo submarino."""
@@ -20,7 +20,7 @@ class Especie(models.Model):
     def __str__(self):
         return self.nombre_especie
 
-# --- Entidades de Inventario y Producción ---
+
 
 class Lote(models.Model):
     """Registro de la biomasa recolectada o en proceso de secado."""
@@ -50,7 +50,7 @@ class InventarioItem(models.Model):
     def __str__(self):
         return f"Inventario {self.estado} de {self.cantidad} kg"
 
-# --- Entidades de Proyección y Clima ---
+
 
 class ClimaDiario(models.Model):
     """Datos climáticos obtenidos de la API Meteorológica."""
@@ -72,7 +72,7 @@ class Proyeccion(models.Model):
     def __str__(self):
         return f"Proyección a {self.dias} días para {self.especie}"
 
-# --- Entidades de Gestión Comercial y Trazabilidad ---
+
 
 class Pedido(models.Model):
     """Registro de los pedidos de clientes (OTD)."""
@@ -134,7 +134,7 @@ class Perfil(models.Model):
         ('AUDITOR', 'Auditor / Invitado'),
     ]
 
-    # Enlaza con el usuario de Django (relación uno a uno)
+
     usuario = models.OneToOneField(User, on_delete=models.CASCADE)
     rol = models.CharField(max_length=45, choices=ROLES, default='CULTIVO')
 
