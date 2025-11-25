@@ -1,37 +1,38 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Registro de Biomasa - SPCP-TR</title>
-</head>
-<body>
-    <h1>Registro de Biomasa Viva (Coordinador de Cultivo)</h1>
-    <form method="POST">
+{% extends "base.html" %}
+
+{% block title %}Registro de Biomasa{% endblock %}
+
+{% block content %}
+    <h1>🌱 Registro de Lote y Stock VIVO</h1>
+    
+    <form method="POST" style="grid-template-columns: 1fr 1fr;">
         {% csrf_token %}
-        
-        <label for="especie">Especie:</label>
-        <select name="especie" required>
-            {% for especie in especies %}
-                <option value="{{ especie.id }}">{{ especie.nombre_especie }}</option>
-            {% endfor %}
-        </select>
-        <br>
 
-        <label for="zona">Zona de Cultivo:</label>
-        <select name="zona" required>
-            {% for zona in zonas %}
-                <option value="{{ zona.id }}">{{ zona.nombre_zona }}</option>
-            {% endfor %}
-        </select>
-        <br>
+        <div>
+            <label for="especie">Especie:</label>
+            <select name="especie" required>
+                {% for especie in especies %}
+                    <option value="{{ especie.id }}">{{ especie.nombre_especie }}</option>
+                {% endfor %}
+            </select>
+        </div>
 
-        <label for="peso_humedo">Peso Húmedo Inicial (kg):</label>
-        <input type="number" step="0.01" name="peso_humedo" required>
-        <br>
+        <div>
+            <label for="zona">Zona de Cultivo:</label>
+            <select name="zona" required>
+                {% for zona in zonas %}
+                    <option value="{{ zona.id }}">{{ zona.nombre_zona }}</option>
+                {% endfor %}
+            </select>
+        </div>
 
-        <button type="submit">Registrar Lote de Cultivo</button>
+        <div style="grid-column: 1 / 3;">
+            <label for="peso_humedo">Peso Húmedo Inicial (kg):</label>
+            <input type="number" step="0.01" name="peso_humedo" required>
+        </div>
+
+        <div style="grid-column: 1 / 3;">
+            <button type="submit">Registrar Lote y Actualizar Inventario</button>
+        </div>
     </form>
-
-    <p><a href="{% url 'dashboard' %}">Volver al Dashboard</a></p>
-</body>
-</html>
+{% endblock %}

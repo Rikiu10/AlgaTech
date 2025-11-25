@@ -1,20 +1,27 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Resultado de Proyección</title>
-</head>
-<body>
-    <h1>✅ Proyección Generada Correctamente</h1>
+{% extends "base.html" %}
 
-    <p>Las nuevas proyecciones de capacidad han sido guardadas y están listas para la planificación operativa y comercial.</p>
+{% block title %}Resultados de Proyección{% endblock %}
 
+{% block content %}
+    <h1>📈 Proyección de Capacidad Productiva (7 y 14 Días)</h1>
+
+    {% if success %}
+        <p class="alerta alerta-success">✅ Proyección generada y actualizada en el sistema.</p>
+    {% endif %}
+
+    {% if alerta_clima %}
+    <p class="alerta {% if 'Crítica' in alerta_clima %}alerta-error{% elif 'Advertencia' in alerta_clima %}alerta-warning{% else %}alerta-success{% endif %}">
+        {{ alerta_clima }}
+    </p>
+    {% endif %}
+
+    <h2>Capacidad Estimada</h2>
     <table>
         <thead>
             <tr>
                 <th>Especie</th>
-                <th>Capacidad Estimada a 7 Días</th>
-                <th>Capacidad Estimada a 14 Días</th>
+                <th>Proyección a 7 Días (Seco)</th>
+                <th>Proyección a 14 Días (Seco)</th>
             </tr>
         </thead>
         <tbody>
@@ -24,10 +31,15 @@
                 <td>{{ p.7_dias }}</td>
                 <td>{{ p.14_dias }}</td>
             </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3">No hay inventario VIVO para proyectar.</td>
+            </tr>
             {% endfor %}
         </tbody>
     </table>
-
-    <p><a href="{% url 'dashboard' %}">Volver al Dashboard</a></p>
-</body>
-</html>
+    
+    <div style="margin-top: 20px;">
+        <a href="{% url 'dashboard' %}" class="btn">Volver al Dashboard</a>
+    </div>
+{% endblock %}

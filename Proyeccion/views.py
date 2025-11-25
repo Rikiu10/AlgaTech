@@ -1,22 +1,29 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, F
-from .models import Proyeccion, InventarioItem, ClimaDiario, Especie, Perfil, Lote, Zona, Pedido, PedidoDetalle, Alerta, ReservaInventario, User
+from django.contrib.auth.models import User
+from .models import Proyeccion, InventarioItem, ClimaDiario, Especie, Perfil, Lote, Zona, Pedido, PedidoDetalle, Alerta, ReservaInventario
 from datetime import date, timedelta, datetime
 from decimal import Decimal
 from django.utils import timezone
+import requests
 
-
+# --- Configuración de API (CRÍTICO: Mover a settings.py en producción) ---
+API_KEY = '74dfedb7dd8d15688e1502c3cab863b7' # Clave activa
+CIUDAD = 'Caldera,CL'
+URL_CLIMA = f'http://api.openweathermap.org/data/2.5/weather?q={CIUDAD}&appid={API_KEY}&units=metric'
 
 def rol_requerido(rol):
     def decorator(view_func):
         def wrapper_func(request, *args, **kwargs):
             if request.user.is_authenticated:
                 try:
+                    # Permite acceso al rol específico O al superusuario
                     if request.user.perfil.rol == rol or request.user.is_superuser:
                         return view_func(request, *args, **kwargs)
                 except Perfil.DoesNotExist:
                     pass
+            # Redirige a acceso denegado si no cumple el rol
             return render(request, 'acceso_denegado.html', status=403) 
         return wrapper_func
     return decorator
@@ -26,9 +33,12 @@ def rol_requerido(rol):
 def dashboard(request):
     return render(request, 'dashboard.html', {})
 
-# 2. Función para registrar la biomasa
-@login_required
+# 2. Función para registrar la biomasa (Coordinador de Cultivo)
+@rol_requerido('CULTIVO') 
 def registro_biomasa(request):
+    especies = Especie.objects.all()
+    zonas = Zona.objects.all()
+    
     if request.method == 'POST':
         # --- Lógica de Procesamiento y Guardado (MVP) ---
         especie_id = request.POST.get('especie')
@@ -43,10 +53,9 @@ def registro_biomasa(request):
             especie=nueva_especie,
             zona=nueva_zona,
             peso_humedo_inicial=peso_humedo,
-            # peso_seco_final se deja nulo hasta que se procese
         )
         
-        # 2. Crear el InventarioItem VIVO asociado al Lote (El Inventario Vivo es un MVP crítico) [cite: 63]
+        # [cite_start]2. Crear el InventarioItem VIVO asociado al Lote (Inventario Vivo) [cite: 63]
         InventarioItem.objects.create(
             lote=nuevo_lote,
             especie=nueva_especie,
@@ -57,15 +66,10 @@ def registro_biomasa(request):
         
         return redirect('dashboard') 
         
-    else:
-        # --- Lógica para mostrar el formulario ---
-        especies = Especie.objects.all()
-        zonas = Zona.objects.all()
-        return render(request, 'registro_biomasa.html', {'especies': especies, 'zonas': zonas})
+    return render(request, 'registro_biomasa.html', {'especies': especies, 'zonas': zonas})
     
 
-# Lógica de Proyección - CRÍTICA para el Gerente de Planta
-# Implementando RBAC: Solo Gerente de Planta (PLANTA) o Admin pueden ejecutar
+# 3. Lógica de Proyección (Gerente de Planta)
 @rol_requerido('PLANTA') 
 def calcular_proyeccion(request):
     # 1. Obtener Inventario Vivo (MVP crítico)
@@ -73,36 +77,60 @@ def calcular_proyeccion(request):
         total_humedo=Sum('cantidad')
     )
     
+    # 2. Obtener Datos Climáticos de Caldera (API METEOROLÓGICA)
+    modificador_capacidad = Decimal('1.0') 
+    alerta_mensaje = "Proyección generada sin alertas." # Mensaje por defecto
+
+    try:
+        response = requests.get(URL_CLIMA)
+        response.raise_for_status() 
+        datos_clima = response.json()
+        
+        humedad_actual = datos_clima['main']['humidity'] 
+        condicion_clima = datos_clima['weather'][0]['description']
+        
+        # Guardar el Clima en Base de Datos (ClimaDiario) para Trazabilidad
+        ClimaDiario.objects.create(
+            fecha=timezone.localdate(),
+            humedad=f"{humedad_actual}%",
+            radiacion_solar="ND (Vía API)", 
+            condicion=condicion_clima
+        )
+        
+        # Aplicar MODIFICADOR CLIMÁTICO (Gestión de la Incertidumbre)
+        if humedad_actual > 80:
+            modificador_capacidad = Decimal('0.75') 
+            alerta_mensaje = f"Alerta Crítica: Humedad en Caldera ({humedad_actual}%) reducirá capacidad en 25%."
+        elif humedad_actual > 60:
+            modificador_capacidad = Decimal('0.90')
+            alerta_mensaje = f"Advertencia: Humedad en Caldera ({humedad_actual}%) reducirá capacidad en 10%."
+
+    except requests.exceptions.RequestException as e:
+        modificador_capacidad = Decimal('1.0') 
+        alerta_mensaje = f"Error: No se pudo conectar a la API. Usando modificador por defecto (100%). {e}"
+        # Se podría registrar Alerta aquí para el Gerente General sobre fallo de conexión
+
     proyecciones = []
     
+    # 3. Iterar sobre el inventario y generar las proyecciones
     for item in inventario_vivo:
         especie = Especie.objects.get(pk=item['especie'])
         total_humedo = item['total_humedo']
-        factor = especie.factor_conversion # 6:1 (ej. 6.00)
+        factor = especie.factor_conversion # Factor 6:1 (crítico)
         
-        # 2. Aplicar la compleja conversión 6:1 (Húmedo a Seco) [cite: 52, 125]
-        capacidad_seca_base = total_humedo / factor
-
-        # 3. Considerar impacto climático (Simplificación para MVP)
-        # Se asume que el clima futuro ideal nos permite procesar el 100%
-        # En una versión avanzada, se usaría ClimaDiario para modular esto.
+        capacidad_seca_base = total_humedo / factor # Conversión 6:1
+        capacidad_seca_modificada = capacidad_seca_base * modificador_capacidad # Aplicar clima
         
-        # 4. Generar Proyección a 7 y 14 días
-        
-        # Proyección a 7 días (ej. procesar el 50% de la capacidad seca base)
-        capacidad_7_dias = capacidad_seca_base * Decimal(0.50)
+        # Proyección a 7 días (ej. 50% de la capacidad MODIFICADA)
+        capacidad_7_dias = capacidad_seca_modificada * Decimal('0.50')
         Proyeccion.objects.create(
-            especie=especie, 
-            dias=7, 
-            capacidad_estimada=capacidad_7_dias
+            especie=especie, dias=7, capacidad_estimada=capacidad_7_dias
         )
 
-        # Proyección a 14 días (ej. procesar el 80% de la capacidad seca base)
-        capacidad_14_dias = capacidad_seca_base * Decimal(0.80)
+        # Proyección a 14 días (ej. 80% de la capacidad MODIFICADA)
+        capacidad_14_dias = capacidad_seca_modificada * Decimal('0.80')
         Proyeccion.objects.create(
-            especie=especie, 
-            dias=14, 
-            capacidad_estimada=capacidad_14_dias
+            especie=especie, dias=14, capacidad_estimada=capacidad_14_dias
         )
 
         proyecciones.append({
@@ -111,14 +139,17 @@ def calcular_proyeccion(request):
             '14_dias': f"{capacidad_14_dias:.2f} kg secos",
         })
 
-    return render(request, 'proyeccion_resultado.html', {'proyecciones': proyecciones, 'success': True})
+    return render(request, 'proyeccion_resultado.html', {
+        'proyecciones': proyecciones, 
+        'success': True,
+        'alerta_clima': alerta_mensaje # Muestra el mensaje climático en el resultado
+    })
 
 
+# 4. Lógica de Pedido (Ejecutivo Comercial)
 @rol_requerido('COMERCIAL') 
 def registro_pedido(request):
     especies = Especie.objects.all()
-    
-    # Inicializar variables a None para evitar NameError si el formulario no se postea
     mensaje = None
     color = None
     
@@ -140,13 +171,10 @@ def registro_pedido(request):
             especie_id=especie_id
         ).aggregate(total_sum=Sum('cantidad'))['total_sum'] or Decimal('0.0')
         
-        # Obtenemos el factor de conversión CRÍTICO (ej. 6.00)
         especie_obj = Especie.objects.get(pk=especie_id)
         factor = especie_obj.factor_conversion
         
-        # Aplicar la compleja conversión 6:1 (Inventario Húmedo Total a Capacidad Seca Base)
-        capacidad_total_seco_base = inventario_total_humedo / factor
-
+        capacidad_total_seco_base = inventario_total_humedo / factor # Conversión 6:1
         capacidad_total = capacidad_total_seco_base
         
         # b) Consultar Proyección
@@ -158,34 +186,25 @@ def registro_pedido(request):
         if proyeccion:
             capacidad_total += proyeccion.capacidad_estimada
 
-        # c) Decisión: ¿La capacidad es mayor al producto? 
+        # c) Decisión: ¿La capacidad es mayor al producto? (Trazabilidad y Riesgo)
         if capacidad_total >= volumen_seco:
             estado_pedido = 'FACTIBLE'
             mensaje = f"✅ Pedido Factible. Capacidad total estimada: {capacidad_total:.2f} kg secos."
             color = 'green'
             
-            # 1. Registrar el Pedido (con estado FACTIBLE)
+            # LÓGICA DE TRAZABILIDAD Y RESERVA
             nuevo_pedido = Pedido.objects.create(
-                usuario=request.user, 
-                fecha_entrega=fecha_entrega,
-                estado=estado_pedido
+                usuario=request.user, fecha_entrega=fecha_entrega, estado=estado_pedido
             )
             detalle = PedidoDetalle.objects.create(
-                pedido=nuevo_pedido,
-                especie_id=especie_id,
-                volumen_en_seco=volumen_seco,
-                granulometria=granulometria,
-                estado=estado_pedido
+                pedido=nuevo_pedido, especie_id=especie_id, volumen_en_seco=volumen_seco,
+                granulometria=granulometria, estado=estado_pedido
             )
             
-            # 2. Crear el registro de RESERVA de Inventario (Trazabilidad)
             inventario_item = InventarioItem.objects.filter(especie_id=especie_id).latest('fecha_actualizacion') 
-
             ReservaInventario.objects.create(
-                pedidodetalle=detalle,
-                inventarioitem=inventario_item,
-                cantidad_reservada=volumen_seco, 
-                estado_reserva='RESERVADO'
+                pedidodetalle=detalle, inventarioitem=inventario_item,
+                cantidad_reservada=volumen_seco, estado_reserva='RESERVADO'
             )
 
         else: # (capacidad_total < volumen_seco)
@@ -193,29 +212,20 @@ def registro_pedido(request):
             mensaje = f"⚠️ Pedido en RIESGO (Incumplimiento). Capacidad disponible: {capacidad_total:.2f} kg secos. Faltan: {(volumen_seco - capacidad_total):.2f} kg."
             color = 'red'
             
-            # 1. Registrar el Pedido (con estado RIESGO)
+            # LÓGICA DE ALERTA CRÍTICA (TC-40)
             nuevo_pedido = Pedido.objects.create(
-                usuario=request.user, 
-                fecha_entrega=fecha_entrega,
-                estado=estado_pedido
+                usuario=request.user, fecha_entrega=fecha_entrega, estado=estado_pedido
             )
             detalle = PedidoDetalle.objects.create(
-                pedido=nuevo_pedido,
-                especie_id=especie_id,
-                volumen_en_seco=volumen_seco,
-                granulometria=granulometria,
-                estado=estado_pedido
+                pedido=nuevo_pedido, especie_id=especie_id, volumen_en_seco=volumen_seco,
+                granulometria=granulometria, estado=estado_pedido
             )
             
-            # 2. Generar Alerta Crítica (TC-40)
             usuario_admin = User.objects.get(pk=1) 
-
             Alerta.objects.create(
-                usuario=usuario_admin,
-                tipo='INCUMPLIMIENTO OTD',
+                usuario=usuario_admin, tipo='INCUMPLIMIENTO OTD',
                 mensaje=f"Riesgo: Pedido {nuevo_pedido.id} supera la capacidad en {(volumen_seco - capacidad_total):.2f} kg. Fecha: {fecha_entrega_str}",
-                nivel='CRITICA',
-                en_mail=False 
+                nivel='CRITICA', en_mail=False 
             )
 
     return render(request, 'registro_pedido.html', {

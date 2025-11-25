@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Acceso Denegado{% endblock %}
+
+{% block content %}
+    <h1 style="color: var(--color-error);">🛑 Acceso Denegado (Error 403)</h1>
+
+    <div class="alerta alerta-error" style="font-size: 1.2em;">
+        <p>Tu rol ({{ user.perfil.rol }}) no tiene permisos para acceder a esta funcionalidad.</p>
+        <p>Por favor, contacta al administrador del sistema si crees que esto es un error.</p>
+    </div>
+    
+    <div style="margin-top: 30px;">
+        <a href="{% url 'dashboard' %}" class="btn">Volver al Dashboard</a>
+    </div>
+{% endblock %}

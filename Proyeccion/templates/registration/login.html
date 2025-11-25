@@ -2,19 +2,112 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Inicio de Sesión SPCP-TR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inicio de Sesión | SPCP-TR</title>
+    
+    <style>
+        :root {
+            --color-principal: #013A63; /* Azul Marino */
+            --color-secundario: #007F5C; /* Verde */
+            --color-error: #DC2626; /* Rojo */
+            --color-fondo: #F9FAFB; /* Gris Claro */
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--color-fondo);
+            display: flex;
+            justify-content: center; /* Centrar el contenedor horizontalmente */
+            align-items: center; /* Centrar el contenedor verticalmente */
+            height: 100vh; /* Ocupar toda la altura de la vista */
+            margin: 0;
+        }
+        .login-container {
+            width: 100%;
+            max-width: 400px; /* Tamaño fijo para el formulario */
+            padding: 40px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        h2 {
+            color: var(--color-principal);
+            margin-bottom: 30px;
+            border-bottom: 2px solid var(--color-principal);
+            padding-bottom: 10px;
+        }
+        /* Estilos para el formulario generado por Django ({{ form.as_p }}) */
+        form p {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        form label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 5px;
+        }
+        form input[type="text"], form input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #CCC;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .errorlist {
+            list-style: none;
+            padding: 10px;
+            margin-bottom: 15px;
+            background-color: #fff0f0;
+            border-left: 4px solid var(--color-error);
+            color: var(--color-error);
+            border-radius: 4px;
+            text-align: left;
+        }
+        /* Estilos del botón principal */
+        button[type="submit"] {
+            width: 100%;
+            background-color: var(--color-secundario);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+            margin-top: 10px;
+        }
+        button[type="submit"]:hover {
+            background-color: #00664B;
+        }
+        .mfa-note {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 20px;
+            border-top: 1px dashed #DDD;
+            padding-top: 10px;
+        }
+    </style>
 </head>
 <body>
-    <h2>Iniciar Sesión</h2>
-    
-    {% if form.errors %}
-        <p>Tu nombre de usuario o contraseña no son correctos.</p>
-    {% endif %}
+    <div class="login-container">
+        <h2>🌊 Acceso al SPCP-TR</h2>
+        
+        {% if form.errors %}
+            <ul class="errorlist">
+                <li>Tu nombre de usuario o contraseña no son correctos. Por favor, inténtalo de nuevo.</li>
+            </ul>
+        {% endif %}
 
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Iniciar Sesión</button>
-    </form>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit">Iniciar Sesión</button>
+        </form>
+
+        <div class="mfa-note">
+            <p>El perfil Administrador requiere **Autenticación Multifactor** (MFA) por seguridad.</p>
+            <p><a href="#">¿Olvidaste tu contraseña?</a></p>
+        </div>
+    </div>
 </body>
 </html>

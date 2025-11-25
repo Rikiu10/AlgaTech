@@ -1,0 +1,169 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SPCP-TR | Gestión Productiva{% endblock %}</title>
+    
+    <style>
+        :root {
+            --color-principal: #013A63; /* Azul Marino (Barra/Acción Primaria) */
+            --color-secundario: #007F5C; /* Verde Esmeralda (Éxito/Acción Secundaria) */
+            --color-alerta: #FFC107; /* Amarillo (Advertencia Climática) */
+            --color-error: #DC2626; /* Rojo (Riesgo OTD/Error) */
+            --color-fondo: #F9FAFB; /* Gris Claro (Fondo) */
+            --color-tarjeta: #FFFFFF; /* Blanco (Fondo de Contenedores) */
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--color-fondo);
+            margin: 0;
+            padding-top: 60px; /* Espacio para la barra de navegación fija */
+            color: #333;
+        }
+        .navbar {
+            background-color: var(--color-principal);
+            color: white;
+            padding: 15px 20px;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin-left: 20px;
+            font-weight: 500;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .navbar a:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .content {
+            padding: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 { color: var(--color-principal); border-bottom: 2px solid #EEE; padding-bottom: 10px; }
+
+        /* Estilos de Formularios y Controles */
+        form {
+            background-color: var(--color-tarjeta);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            display: grid;
+            gap: 15px;
+        }
+        label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="text"], input[type="date"], input[type="number"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #CCC;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        /* Estilos de Botones */
+        button, input[type="submit"], .btn {
+            background-color: var(--color-secundario);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+            text-decoration: none;
+            text-align: center;
+        }
+        button:hover, input[type="submit"]:hover, .btn:hover {
+            background-color: #00664B; /* Tono más oscuro de verde */
+        }
+        
+        /* Estilos de Alertas y Mensajes */
+        .alerta {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+            font-weight: bold;
+            border-left: 6px solid;
+        }
+        .alerta-success { 
+            border-color: var(--color-secundario); 
+            background-color: #e6fff1; 
+            color: var(--color-secundario); 
+        }
+        .alerta-error { 
+            border-color: var(--color-error); 
+            background-color: #fff0f0; 
+            color: var(--color-error); 
+        }
+        .alerta-warning { 
+            border-color: var(--color-alerta); 
+            background-color: #fffbef; 
+            color: #CC9900; 
+        }
+
+        /* Estilos de Tablas de Proyección */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: var(--color-tarjeta);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        th, td {
+            border: 1px solid #DDD;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: var(--color-principal);
+            color: white;
+            font-weight: 600;
+        }
+        tr:nth-child(even) {
+            background-color: #F5F5F5;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="logo">
+            <a href="{% url 'dashboard' %}">🌊 **AlgaeTech** | SPCP-TR</a>
+        </div>
+        <div class="menu">
+            {% if user.is_authenticated %}
+            <a href="{% url 'dashboard' %}">Dashboard</a>
+            <a href="{% url 'registro_biomasa' %}">Registrar Stock</a>
+            <a href="{% url 'calcular_proyeccion' %}">Proyección</a>
+            <a href="{% url 'registro_pedido' %}">Nuevo Pedido</a>
+            
+            <form method="POST" action="{% url 'logout' %}" style="display:inline; margin-left: 20px;">
+                {% csrf_token %}
+                <button type="submit" style="background-color: #012C4A; color: white;">Cerrar Sesión ({{ user.username }})</button>
+            </form>
+            {% else %}
+            <a href="{% url 'login' %}">Iniciar Sesión</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="content">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>
