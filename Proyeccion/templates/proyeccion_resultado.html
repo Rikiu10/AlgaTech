@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Resultado de Proyección</title>
+</head>
+<body>
+    <h1>✅ Proyección Generada Correctamente</h1>
+
+    <p>Las nuevas proyecciones de capacidad han sido guardadas y están listas para la planificación operativa y comercial.</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Especie</th>
+                <th>Capacidad Estimada a 7 Días</th>
+                <th>Capacidad Estimada a 14 Días</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in proyecciones %}
+            <tr>
+                <td>{{ p.especie }}</td>
+                <td>{{ p.7_dias }}</td>
+                <td>{{ p.14_dias }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p><a href="{% url 'dashboard' %}">Volver al Dashboard</a></p>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - SPCP-TR</title>
+    <style>
+        .kpi-card { 
+            border: 1px solid #ccc; 
+            padding: 15px; 
+            margin: 10px; 
+            display: inline-block; 
+            min-width: 200px; 
+            text-align: center;
+        }
+        .kpi-value { font-size: 2em; font-weight: bold; color: #007F5C; /* Verde del informe */ }
+    </style>
+</head>
+<body>
+    <h1>📊 Dashboard de Proyección de Capacidad Productiva</h1>
+    <p>¡Bienvenido, **{{ user.username }}**! (Rol: **{{ user.perfil.rol }}**)</p>
+    
+    <div style="float: right;">
+        <form method="POST" action="{% url 'logout' %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit">Cerrar Sesión</button>
+        </form>
+    </div>
+    
+    <h2>Indicadores Clave de Desempeño (KPIs)</h2>
+    <div class="kpi-container">
+        <div class="kpi-card">
+            <h3>Producción Húmeda Total (kg)</h3>
+            <p class="kpi-value">50,000</p>
+        </div>
+        <div class="kpi-card">
+            <h3>Tasa de Merma (%)</h3>
+            <p class="kpi-value" style="color: #F5A300;">8%</p> </div>
+        <div class="kpi-card">
+            <h3>Cumplimiento de Entregas (OTD)</h3>
+            <p class="kpi-value" style="color: #28A745;">92%</p> </div>
+    </div>
+    
+    <hr>
+    
+    <h2>⚙️ Acciones Operativas y Estratégicas</h2>
+    
+    <p>
+        <a href="{% url 'registro_biomasa' %}">
+            **Registrar Lote de Biomasa Viva** (Coordinador de Cultivo)
+        </a>
+    </p>
+    
+    <p>
+        <a href="{% url 'calcular_proyeccion' %}">
+            **Ejecutar Proyección 7–14 Días** (Gerente de Planta)
+        </a>
+    </p>
+
+    <p>
+        <a href="{% url 'registro_pedido' %}">
+            **Registrar Nuevo Pedido** (Ejecutivo Comercial)
+        </a>
+    </p>
+
+    <hr>
+    
+    <h2>🚨 Estado de Alertas Críticas</h2>
+    <p>
+        <a href="#">
+            **Ver Alertas Pendientes** (<span style="color: red;">1</span> Alerta de Riesgo Climático)
+        </a>
+    </p>
+
+    <p><a href="#">Consultar Estado de Pedidos (OTD)</a></p>
+
+
+    </body>
+</html>
